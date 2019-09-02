@@ -75,6 +75,11 @@ class RedisManager implements Factory
 
         $options = $this->config['options'] ?? [];
 
+        $clusterConfig = $this->getClusterConfig($name);
+        if ($clusterConfig) {
+            return $this->resolveClusterOption($name);
+        }
+
         if (isset($this->config[$name])) {
             return $this->connector()->connect($this->config[$name], $options);
         }
@@ -85,6 +90,41 @@ class RedisManager implements Factory
 
         throw new InvalidArgumentException(
             "Redis connection [{$name}] not configured."
+        );
+    }
+
+    /**
+     * Get the cluster options if it exists 
+     *
+     * @param  string $connection the connection given by name  
+     * @return mixed 
+     *
+     */
+    private function getClusterConfig($connection)
+    {
+        if (isset(config[$connection]['clusters'])) {
+            return config[$connection]['clusters']; 
+        } else {
+            return null; 
+        }
+    } 
+
+    /**
+     * Resolve the cluster option
+     * note: this basically does the same job as resolveCluster
+     * but targetig a config where a cluster connection is treated
+     * the same way as the default connection, ie as a first class citizen
+     *
+     * @param  string  $name
+     * @return \Illuminate\Redis\Connections\Connection
+     */
+    protected function resolveClusterOption($name)
+    {
+        // this works if you put the cluster options at the top level
+        $clusterOptions = $this->config[$name]['options'] ?? [];
+
+        return $this->connector()->connectToCluster(
+            $this->config[$name]['clusters'], $clusterOptions, $this->config['options'] ?? []
         );
     }
 
