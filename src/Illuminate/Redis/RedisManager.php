@@ -75,6 +75,14 @@ class RedisManager implements Factory
 
         $options = $this->config['options'] ?? [];
 
+        if ($this->hasClusters($name)) {
+            return $this->resolveClusterOption($name);
+        }
+
+        if ($this->hasReplicas($name)) {
+            return $this->resolveReplicaOption($name);
+        }
+
         if (isset($this->config[$name])) {
             return $this->connector()->connect($this->config[$name], $options);
         }
@@ -85,6 +93,74 @@ class RedisManager implements Factory
 
         throw new InvalidArgumentException(
             "Redis connection [{$name}] not configured."
+        );
+    }
+
+    /**
+     * checks if the current connection has clusters in it 
+     *
+     * @param  string $connection the connection given by name  
+     * @return mixed 
+     *
+     */
+    private function hasClusters($connection)
+    {
+        if (isset($this->config[$connection]['clusters'])) {
+            return true; 
+        } else {
+            return false; 
+        }
+    } 
+
+    /**
+     * checks if the current connection has replicas in it 
+     *
+     * @param  string $connection the connection given by name  
+     * @return mixed 
+     *
+     */
+    private function hasReplicas($connection)
+    {
+        if (isset($this->config[$connection]['replicas'])) {
+            return true; 
+        } else {
+            return false; 
+        }
+    } 
+
+    /**
+     * Resolve the cluster option
+     * note: this basically does the same job as resolveCluster
+     * but targetig a config where a cluster connection is treated
+     * the same way as the default connection, ie as a first class citizen
+     *
+     * @param  string  $name
+     * @return \Illuminate\Redis\Connections\Connection
+     */
+    protected function resolveClusterOption($name)
+    {
+        // this works if you put the cluster options at the top level
+        $clusterOptions = $this->config[$name]['options'] ?? [];
+
+        return $this->connector()->connectToCluster(
+            $this->config[$name]['clusters'], $clusterOptions, $this->config['options'] ?? []
+        );
+    }
+
+
+    /**
+     * Resolve the replica option
+     *
+     * @param  string  $name
+     * @return \Illuminate\Redis\Connections\Connection
+     */
+    protected function resolveReplicaOption($name)
+    {
+        // this works if you put the cluster options at the top level
+        $replicaOptions = $this->config[$name]['options'] ?? [];
+
+        return $this->connector()->connectToCluster(
+            $this->config[$name]['replicas'], $replicaOptions, $this->config['options'] ?? []
         );
     }
 
@@ -140,3 +216,5 @@ class RedisManager implements Factory
         return $this->connection()->{$method}(...$parameters);
     }
 }
+
+
