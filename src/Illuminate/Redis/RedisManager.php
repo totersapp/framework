@@ -75,9 +75,12 @@ class RedisManager implements Factory
 
         $options = $this->config['options'] ?? [];
 
-        $clusterConfig = $this->getClusterConfig($name);
-        if ($clusterConfig) {
+        if ($this->hasClusters($name)) {
             return $this->resolveClusterOption($name);
+        }
+
+        if ($this->hasReplicas($name)) {
+            return $this->resolveReplicaOption($name);
         }
 
         if (isset($this->config[$name])) {
@@ -94,18 +97,34 @@ class RedisManager implements Factory
     }
 
     /**
-     * Get the cluster options if it exists 
+     * checks if the current connection has clusters in it 
      *
      * @param  string $connection the connection given by name  
      * @return mixed 
      *
      */
-    private function getClusterConfig($connection)
+    private function hasClusters($connection)
     {
         if (isset($this->config[$connection]['clusters'])) {
-            return $this->config[$connection]['clusters']; 
+            return true; 
         } else {
-            return null; 
+            return false; 
+        }
+    } 
+
+    /**
+     * checks if the current connection has replicas in it 
+     *
+     * @param  string $connection the connection given by name  
+     * @return mixed 
+     *
+     */
+    private function hasReplicas($connection)
+    {
+        if (isset($this->config[$connection]['replicas'])) {
+            return true; 
+        } else {
+            return false; 
         }
     } 
 
@@ -125,6 +144,23 @@ class RedisManager implements Factory
 
         return $this->connector()->connectToCluster(
             $this->config[$name]['clusters'], $clusterOptions, $this->config['options'] ?? []
+        );
+    }
+
+
+    /**
+     * Resolve the replica option
+     *
+     * @param  string  $name
+     * @return \Illuminate\Redis\Connections\Connection
+     */
+    protected function resolveReplicaOption($name)
+    {
+        // this works if you put the cluster options at the top level
+        $replicaOptions = $this->config[$name]['options'] ?? [];
+
+        return $this->connector()->connectToCluster(
+            $this->config[$name]['replicas'], $replicaOptions, $this->config['options'] ?? []
         );
     }
 
